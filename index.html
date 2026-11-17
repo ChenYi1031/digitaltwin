@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>电池模组装配基地 · 数字孪生总览</title>
+  <link rel="stylesheet" href="./css/main.v1.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js",
+        "three/addons/controls/OrbitControls.js": "./vendor/OrbitControls.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <aside id="panel">
+    <div class="panel-accent"></div>
+    <h1>电池模组装配基地</h1>
+    <div class="subtitle">数字孪生总览 · P0</div>
+
+    <div class="section-title">当前选中</div>
+    <div id="sel-name" class="sel-name">— 未选中 —</div>
+    <div id="sel-status" class="sel-status">点击厂房 / 仓储 / 港口 / 道路查看信息并聚焦</div>
+    <div id="sel-desc" class="sel-desc"></div>
+
+    <div class="section-title">工序模块</div>
+    <ul class="modules">
+      <li><span>机械臂工作站</span><em class="tag">未启用</em></li>
+      <li><span>检测工位</span><em class="tag">未启用</em></li>
+      <li><span>AGV 车辆调度</span><em class="tag">未启用</em></li>
+      <li><span>自动巡游</span><em class="tag">未启用</em></li>
+    </ul>
+
+    <div class="footer">
+      <button id="btn-pause">暂停</button>
+      <span id="clock" class="clock">00:00</span>
+    </div>
+    <div class="hint">左键拖拽旋转 · 滚轮缩放 · 右键平移 · 点击设施聚焦</div>
+  </aside>
+
+  <script type="module" src="./js/main.v1.js"></script>
+</body>
+</html>

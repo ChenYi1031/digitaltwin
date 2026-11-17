@@ -1,0 +1,156 @@
+/* ============================================================
+   main.v1.css —— 悬浮面板样式
+   视觉规范（§6）：半透明白底、细边框、圆角、无重阴影；
+   文字深灰 #4A4F57，数值等宽字体，强调条工业橙 #F08A24。
+   ============================================================ */
+
+:root {
+  --white: #f5f6f7;
+  --light-gray: #d9dce1;
+  --dark-gray: #4a4f57;
+  --orange: #f08a24;
+  --panel-bg: rgba(255, 255, 255, 0.82);
+  --panel-border: rgba(74, 79, 87, 0.18);
+  --mono: "Consolas", "JetBrains Mono", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--dark-gray);
+}
+
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
+
+/* ---- 悬浮面板 ---- */
+#panel {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 296px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  padding: 0 16px 12px;
+  user-select: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.panel-accent {
+  margin: 0 -16px 10px;
+  height: 4px;
+  border-radius: 10px 10px 0 0;
+  background: var(--orange);
+}
+
+#panel h1 {
+  margin: 2px 0 2px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: rgba(74, 79, 87, 0.65);
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(74, 79, 87, 0.55);
+  margin: 10px 0 4px;
+  text-transform: uppercase;
+}
+
+.sel-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dark-gray);
+}
+.sel-name.active { color: var(--orange); }
+
+.sel-status {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.sel-desc {
+  font-size: 12px;
+  color: rgba(74, 79, 87, 0.72);
+  margin-top: 2px;
+}
+
+/* ---- 工序模块列表 ---- */
+.modules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.modules li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+.modules .tag {
+  font-style: normal;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(74, 79, 87, 0.10);
+  color: rgba(74, 79, 87, 0.65);
+  border: 1px solid rgba(74, 79, 87, 0.18);
+}
+
+/* ---- 底部操作区 ---- */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+
+#btn-pause {
+  appearance: none;
+  border: 1px solid rgba(240, 138, 36, 0.55);
+  background: rgba(240, 138, 36, 0.12);
+  color: var(--dark-gray);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+#btn-pause:hover { background: rgba(240, 138, 36, 0.22); }
+#btn-pause.paused {
+  background: rgba(74, 79, 87, 0.12);
+  border-color: rgba(74, 79, 87, 0.4);
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--orange);
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(74, 79, 87, 0.5);
+}
