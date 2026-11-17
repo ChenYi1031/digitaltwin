@@ -1,14 +1,15 @@
 // ============================================================
-// road.v1.js —— 路网节点图 → 路面 + 标线
+// road.v2.js —— 路网节点图 → 路面 + 标线
+// v2：ROAD_GRAPH 主干道拆为 4 段（config.v2），逐段绘制结果与整段视觉一致；
+//     段间接缝面法线相反（+x 面 vs -x 面），背面剔除下不产生 Z-fighting。
 // 健壮性检查（§9）：
-//   - 主干道顶面 0.14、支路顶面 0.15、标线底面 0.16：相邻高程错开 ≥0.01，
-//     交叉口搭接处不共面，杜绝 Z-fighting；
+//   - 主干道顶面 0.14、支路顶面 0.15、标线底面 0.16：相邻高程错开 ≥0.01；
 //   - 支路两端各外延半宽，填平丁字路口夹角。
-// vehicle.js（P2）将直接复用 ROAD_GRAPH 做沿路网行驶与路口通行控制。
+// vehicle.v2.js 复用 ROAD_GRAPH 做沿路网行驶与路口通行控制。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS, ROAD_GRAPH } from './config.v1.js';
+import { COLORS, ROAD_GRAPH } from './config.v2.js';
 
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 
@@ -42,7 +43,7 @@ export function buildRoads() {
     roadBox(w, lenE, 0.14, isMain ? 0.07 : 0.08, cx, cz, horizontal);
   }
 
-  // 主干道中央虚线（InstancedMesh）
+  // 主干道中央虚线（InstancedMesh；frustumCulled 关闭——实例散布远超几何包围球）
   {
     const [a, b] = [ROAD_GRAPH.nodes.n0, ROAD_GRAPH.nodes.n1];
     const zMid = a.z;
@@ -57,6 +58,7 @@ export function buildRoads() {
     }
     dashes.instanceMatrix.needsUpdate = true;
     dashes.receiveShadow = true;
+    dashes.frustumCulled = false;   // 实例包围远超几何球，禁用视锥剔除防整段消失
     g.add(dashes);
   }
 
@@ -76,8 +78,8 @@ export function buildRoads() {
   return {
     id: 'road',
     name: '基地道路网',
-    status: '畅通 · 0 处占用',
-    desc: '1 条主干道 + 3 条支路。AGV 车辆行驶与路口调度未启用（P2 接入）。',
+    status: '畅通 · AGV 调度运行中',
+    desc: '1 条主干道 + 3 条支路。AGV 车辆沿路网行驶（P2 已启用）：右侧行车、跟车间距、路口让行。',
     group: g,
     focus: {
       target: new THREE.Vector3(0, 2, 34),

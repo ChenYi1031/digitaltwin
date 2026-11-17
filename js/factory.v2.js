@@ -1,16 +1,19 @@
 // ============================================================
-// factory.v1.js —— 厂房 / 仓储 / 港口建筑体块（程序化生成，无外部模型）
+// factory.v2.js —— 厂房 / 仓储 / 港口建筑体块（程序化生成，无外部模型）
+// v2 变更：
+//   - 主厂房 z=-8（config），厂前新增装配试验区平台 APRON（P1 机械臂站位）；
+//   - 所有 InstancedMesh 关闭 frustumCulled：实例散布远超几何包围球，
+//     默认剔除会导致整组实例在镜头边缘集体消失（v1 隐患修复）。
 // 性能约束（§8）：
-//   - 所有长方体共用同一单位盒 Geometry（UNIT_BOX），按 scale 复用；
-//   - 重复构件（货架、货物、集装箱、护舷、立柱）一律 InstancedMesh；
+//   - 长方体共用同一单位盒 Geometry；重复构件一律 InstancedMesh；
 //   - 每个设施持有独立 Material 实例，保证拾取高亮互不影响。
 // 健壮性检查（§9）：
-//   - 所有附加构件相对墙面外凸 0.15~0.2 或抬升 ≥0.05，禁止完全共面叠加；
-//   - 水面高于地面 0.04，避免与地面 Z-fighting。
+//   - 附加构件相对墙面外凸 0.15~0.2 或抬升 ≥0.05，禁止完全共面叠加；
+//   - 水面高于地面 0.04；平台标线底部 0.005 抬升防共面。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS, LAYOUT } from './config.v1.js';
+import { COLORS, LAYOUT, APRON } from './config.v2.js';
 
 // 统一单位盒：所有长方体构件复用同一 Geometry 实例
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -50,7 +53,7 @@ function setInst(mesh, i, x, y, z, sx, sy, sz) {
 }
 
 // ------------------------------------------------------------
-// 1. 主装配车间
+// 1. 主装配车间 + 装配试验区平台
 // ------------------------------------------------------------
 export function buildFactory() {
   const mats = makeMats();
@@ -98,11 +101,19 @@ export function buildFactory() {
   // 锅炉房烟囱
   g.add(box(2.6, 12, 2.6, mats.dark, x - w / 2 - 2.5, 6, z - 14));
 
+  // —— 装配试验区平台（P1 机械臂工作站所在，厂前）——
+  g.add(box(APRON.w, APRON.h, APRON.d, mats.trim, APRON.x, APRON.h / 2, APRON.z));
+  // 平台四周安全标线（工业橙；底部 0.005 抬升，避免与平台顶面共面）
+  g.add(box(APRON.w - 1.4, 0.17, 0.28, mats.orange, APRON.x, 0.59, APRON.z - APRON.d / 2 + 0.35, { cast: false }));
+  g.add(box(APRON.w - 1.4, 0.17, 0.28, mats.orange, APRON.x, 0.59, APRON.z + APRON.d / 2 - 0.35, { cast: false }));
+  g.add(box(0.28, 0.17, APRON.d - 1.4, mats.orange, APRON.x - APRON.w / 2 + 0.35, 0.59, APRON.z, { cast: false }));
+  g.add(box(0.28, 0.17, APRON.d - 1.4, mats.orange, APRON.x + APRON.w / 2 - 0.35, 0.59, APRON.z, { cast: false }));
+
   return {
     id: 'factory',
     name: '主装配车间',
     status: '运行中 · 3 条装配线满产',
-    desc: '电池模组装配主厂房。机械臂工作站未启用（P1 接入）。',
+    desc: '电池模组装配主厂房，厂前为装配试验区（机械臂工作站 A/B）。机械臂工作站已启用（P1）。',
     group: g,
     focus: {
       target: new THREE.Vector3(x, 8, z),
@@ -131,13 +142,14 @@ export function buildWarehouse() {
   cols.instanceMatrix.needsUpdate = true;
   cols.castShadow = true;
   cols.receiveShadow = true;
+  cols.frustumCulled = false;   // 实例散布远超几何包围球，禁用剔除防整组消失
   g.add(cols);
 
   // 棚顶（底部 8.8 = 柱顶 8.8，居中 9.05，留 0.05 间隙）
   g.add(box(w + 2, 0.5, d + 2, mats.roof, x, 9.05, z));
 
   // 货架 InstancedMesh：3 排 × 6 列
-  const rackGeo = new THREE.BoxGeometry(7, 4.2, 2);   // 货架专用几何，实例化复用
+  const rackGeo = new THREE.BoxGeometry(7, 4.2, 2);
   const rows = [-13, 0, 13];
   const perRow = 6;
   const racks = new THREE.InstancedMesh(rackGeo, mats.trim, rows.length * perRow);
@@ -148,6 +160,7 @@ export function buildWarehouse() {
   racks.instanceMatrix.needsUpdate = true;
   racks.castShadow = true;
   racks.receiveShadow = true;
+  racks.frustumCulled = false;
   g.add(racks);
 
   // 货物箱 InstancedMesh（实例级颜色：橙 / 浅灰 / 深灰交错，确定性排布）
@@ -156,7 +169,7 @@ export function buildWarehouse() {
   for (const rz of rows)
     for (let i = 0; i < perRow; i++)
       for (const lvl of [1.4, 3.3])
-        if ((i + lvl * 10 + rz) % 3 !== 0)          // 稀疏填充，避免呆板
+        if ((i + lvl * 10 + rz) % 3 !== 0)
           cargoList.push([x - 25 + i * 10, lvl, z + rz]);
   const cargo = new THREE.InstancedMesh(cargoGeo, mats.cargo, cargoList.length);
   const palette = [new THREE.Color(COLORS.orange), new THREE.Color(COLORS.lightGray), new THREE.Color(COLORS.darkGray)];
@@ -168,13 +181,14 @@ export function buildWarehouse() {
   if (cargo.instanceColor) cargo.instanceColor.needsUpdate = true;
   cargo.castShadow = true;
   cargo.receiveShadow = true;
+  cargo.frustumCulled = false;
   g.add(cargo);
 
   return {
     id: 'warehouse',
     name: '成品仓储区',
     status: '库存正常 · 3 排 18 组货架',
-    desc: '开放式堆棚，电池模组成品暂存与发运缓冲。WMS 联动未启用（P2 接入）。',
+    desc: '开放式堆棚，电池模组成品暂存与发运缓冲。AGV 可沿支路 n2-n5 到达装卸位（P2 已启用）。',
     group: g,
     focus: {
       target: new THREE.Vector3(x, 6, z),
@@ -194,31 +208,32 @@ export function buildPort() {
   // 码头平台
   g.add(box(w, 1.6, d, mats.trim, x, 0.8, z));
 
-  // 港池水面（高于地面 0.04 防 Z-fighting；不投影、不受光晕影响）
+  // 港池水面（高于地面 0.04 防 Z-fighting；不投影）
   const water = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.water.w, LAYOUT.water.d), mats.water);
   water.rotation.x = -Math.PI / 2;
   water.position.set(LAYOUT.water.x, 0.04, LAYOUT.water.z);
   water.receiveShadow = false;
   g.add(water);
 
-  // 护舷 InstancedMesh：沿临水缘（码头南缘）每 8m 一只
+  // 护舷 InstancedMesh：沿临水缘（码头南缘）每 8.5m 一只
   const fenders = new THREE.InstancedMesh(UNIT_BOX, mats.dark, 9);
   for (let i = 0; i < 9; i++)
     setInst(fenders, i, x - w / 2 + 6 + i * 8.5, 1.9, z + d / 2 - 0.6, 0.9, 0.8, 1.2);
   fenders.instanceMatrix.needsUpdate = true;
   fenders.castShadow = true;
+  fenders.frustumCulled = false;
   g.add(fenders);
 
-  // 集装箱 InstancedMesh（实例级颜色）：5 × 4 底层 + 8 只二层
+  // 集装箱 InstancedMesh（实例级颜色）：5 × 4 底层 + 稀疏二层
   const contGeo = new THREE.BoxGeometry(6.1, 2.6, 2.44);
   const slotsX = [-28, -14, 0, 14, 28].map((dx) => x + dx);
   const slotsZ = [-12, -4, 4, 12].map((dz) => z + dz);
   const positions = [];
   for (const sx of slotsX)
     for (const sz of slotsZ) {
-      positions.push([sx, 2.9, sz]);                                  // 底层（基面 1.6 + 箱半高 1.3）
+      positions.push([sx, 2.9, sz]);
       if ((sx + sz) % 7 === 0 || (sx + sz) % 11 === 0)
-        positions.push([sx, 5.5, sz]);                                // 二层（稀疏）
+        positions.push([sx, 5.5, sz]);
     }
   const conts = new THREE.InstancedMesh(contGeo, mats.cargo, positions.length);
   const cPalette = [new THREE.Color(COLORS.orange), new THREE.Color(COLORS.lightGray), new THREE.Color(COLORS.darkGray)];
@@ -230,6 +245,7 @@ export function buildPort() {
   if (conts.instanceColor) conts.instanceColor.needsUpdate = true;
   conts.castShadow = true;
   conts.receiveShadow = true;
+  conts.frustumCulled = false;
   g.add(conts);
 
   // 门式起重机（静态体块）：轨道 + 4 腿 + 主梁 + 外伸臂 + 小车
@@ -238,9 +254,9 @@ export function buildPort() {
   [[-19, -10], [19, -10], [-19, 10], [19, 10]].forEach(([lx, lz]) =>
     g.add(box(1.4, 12, 1.4, mats.orange, x + lx, 7.9, z + lz))
   );
-  g.add(box(46, 1.8, 3.2, mats.orange, x, 14.8, z));          // 主梁
-  g.add(box(18, 1.6, 3.2, mats.orange, x + 31, 14.8, z));     // 临水侧外伸臂
-  g.add(box(3, 2.4, 2.4, mats.dark, x + 20, 13.4, z));        // 起重小车
+  g.add(box(46, 1.8, 3.2, mats.orange, x, 14.8, z));
+  g.add(box(18, 1.6, 3.2, mats.orange, x + 31, 14.8, z));
+  g.add(box(3, 2.4, 2.4, mats.dark, x + 20, 13.4, z));
 
   return {
     id: 'port',

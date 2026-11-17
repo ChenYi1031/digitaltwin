@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>电池模组装配基地 · 数字孪生总览</title>
-  <link rel="stylesheet" href="./css/main.v1.css">
+  <title>电池模组装配基地 · 数字孪生</title>
+  <link rel="stylesheet" href="./css/main.v2.css">
   <script type="importmap">
     {
       "imports": {
@@ -20,28 +20,39 @@
   <aside id="panel">
     <div class="panel-accent"></div>
     <h1>电池模组装配基地</h1>
-    <div class="subtitle">数字孪生总览 · P0</div>
+    <div class="subtitle">数字孪生 · 基地总览 + 产线工序 P1-P3</div>
 
     <div class="section-title">当前选中</div>
     <div id="sel-name" class="sel-name">— 未选中 —</div>
-    <div id="sel-status" class="sel-status">点击厂房 / 仓储 / 港口 / 道路查看信息并聚焦</div>
+    <div id="sel-status" class="sel-status">点击厂房 / 机械臂 / 检测 / 港口 / 道路查看信息并聚焦</div>
     <div id="sel-desc" class="sel-desc"></div>
 
     <div class="section-title">工序模块</div>
     <ul class="modules">
-      <li><span>机械臂工作站</span><em class="tag">未启用</em></li>
-      <li><span>检测工位</span><em class="tag">未启用</em></li>
-      <li><span>AGV 车辆调度</span><em class="tag">未启用</em></li>
-      <li><span>自动巡游</span><em class="tag">未启用</em></li>
+      <li><span>机械臂工作站</span><em class="tag on" id="mod-robot">运行中</em></li>
+      <li><span>检测工位</span><em class="tag on" id="mod-inspect">运行中</em></li>
+      <li><span>AGV 车辆调度</span><em class="tag on" id="mod-vehicle">运行中</em></li>
+      <li><span>自动巡游</span><em class="tag" id="mod-tour">点击「巡游」开启</em></li>
     </ul>
 
+    <div class="section-title">产线状态</div>
+    <div class="tel">
+      <span class="k">机械臂 A</span><span class="v" id="tel-robot-a">—</span>
+      <span class="k">机械臂 B</span><span class="v" id="tel-robot-b">—</span>
+      <span class="k">检测工位</span><span class="v" id="tel-inspect">—</span>
+      <span class="k">AGV 车辆</span><span class="v" id="tel-agv">—</span>
+    </div>
+
+    <div id="alarm" hidden></div>
+
     <div class="footer">
+      <button id="btn-tour">巡游</button>
       <button id="btn-pause">暂停</button>
       <span id="clock" class="clock">00:00</span>
     </div>
-    <div class="hint">左键拖拽旋转 · 滚轮缩放 · 右键平移 · 点击设施聚焦</div>
+    <div class="hint">左键拖拽旋转 · 滚轮缩放 · 右键平移 · 点击设施聚焦 · 拖拽可接管巡游</div>
   </aside>
 
-  <script type="module" src="./js/main.v1.js"></script>
+  <script type="module" src="./js/main.v2.js"></script>
 </body>
 </html>
