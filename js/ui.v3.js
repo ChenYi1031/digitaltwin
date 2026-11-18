@@ -1,7 +1,6 @@
 // ============================================================
-// ui.v2.js —— 悬浮面板（纯 DOM + CSS，不用 lil-gui）
-//   基地名称、选中设施信息、工序模块状态标签、产线遥测、
-//   故障警报条、暂停/巡游按钮、仿真时钟。
+// ui.v3.js —— 悬浮面板（纯 DOM + CSS）
+//   v3：模块列表新增 船舶调度 / 物料协同；遥测新增 物料 A/B 线。
 //   全部文本带变更检测：仅在实际变化时写 DOM。
 // ============================================================
 
@@ -19,6 +18,8 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       robot: $('mod-robot'),
       inspect: $('mod-inspect'),
       vehicle: $('mod-vehicle'),
+      marine: $('mod-marine'),
+      material: $('mod-material'),
       tour: $('mod-tour'),
     },
     tel: {
@@ -26,6 +27,8 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       rb: $('tel-robot-b'),
       ins: $('tel-inspect'),
       agv: $('tel-agv'),
+      matA: $('tel-mat-a'),
+      matB: $('tel-mat-b'),
     },
   };
 
@@ -41,7 +44,6 @@ export function initUI({ onPauseToggle, onTourToggle }) {
   el.tour.addEventListener('click', onTourToggle);
 
   return {
-    /** 更新选中设施信息；传 null 恢复默认提示 */
     setSelected(f) {
       if (f) {
         setText(el.name, 'name', f.name);
@@ -50,13 +52,12 @@ export function initUI({ onPauseToggle, onTourToggle }) {
         el.name.classList.add('active');
       } else {
         setText(el.name, 'name', '— 未选中 —');
-        setText(el.status, 'status', '点击厂房 / 机械臂 / 检测 / 港口 / 道路查看信息并聚焦');
+        setText(el.status, 'status', '点击任意设施查看信息并聚焦');
         setText(el.desc, 'desc', '');
         el.name.classList.remove('active');
       }
     },
 
-    /** 暂停状态同步按钮文案 */
     setPaused(paused) {
       const t = paused ? '恢复' : '暂停';
       if (cache.paused !== t) {
@@ -66,7 +67,6 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       }
     },
 
-    /** 巡游状态同步按钮 */
     setTourActive(active) {
       const t = active ? '停止巡游' : '巡游';
       if (cache.tour !== t) {
@@ -77,7 +77,6 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       setText(el.mod.tour, 'modTour', active ? '巡游中 · 拖拽接管' : '点击「巡游」开启');
     },
 
-    /** 故障警报条（null/空数组 = 隐藏） */
     setAlarm(list) {
       const t = list && list.length ? list.join('；') : '';
       if (cache.alarm !== t) {
@@ -87,7 +86,6 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       }
     },
 
-    /** 仿真时钟显示（mm:ss，仅在文本变化时写 DOM） */
     setClock(simTime) {
       const total = Math.floor(simTime);
       const text =
@@ -97,19 +95,21 @@ export function initUI({ onPauseToggle, onTourToggle }) {
       setText(el.clock, 'clock', text);
     },
 
-    /** 工序模块状态标签 */
     setModules(m) {
       setText(el.mod.robot, 'modRobot', m.robot);
       setText(el.mod.inspect, 'modInspect', m.inspect);
       setText(el.mod.vehicle, 'modVehicle', m.vehicle);
+      setText(el.mod.marine, 'modMarine', m.marine);
+      setText(el.mod.material, 'modMaterial', m.material);
     },
 
-    /** 产线遥测 */
     setTelemetry(t) {
       setText(el.tel.ra, 'telRa', t.ra);
       setText(el.tel.rb, 'telRb', t.rb);
       setText(el.tel.ins, 'telIns', t.ins);
       setText(el.tel.agv, 'telAgv', t.agv);
+      setText(el.tel.matA, 'telMatA', t.matA);
+      setText(el.tel.matB, 'telMatB', t.matB);
     },
   };
 }

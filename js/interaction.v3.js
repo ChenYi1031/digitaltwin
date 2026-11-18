@@ -1,15 +1,15 @@
 // ============================================================
-// interaction.v2.js —— Raycaster 拾取与高亮
+// interaction.v3.js —— Raycaster 拾取与高亮
+// v3：仅配置版本跟进（import config.v3），逻辑与 v2 一致。
 // 健壮性检查（§9）：
 //   - 只对"可交互对象集合"（pickMeshes）做射线检测，不遍历全场景；
 //   - 拖拽轨道（位移 > 6px）不判定为点击，避免旋转后误触发聚焦；
 //   - 高亮通过设施专属材质的 emissive 实现（材质隔离，互不影响）；
-//   - userData.noHighlight 的材质（状态指示灯等）不参与高亮，避免覆盖其
-//     自身的动态 emissive 状态。
+//   - userData.noHighlight 的材质（状态指示灯等）不参与高亮。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS } from './config.v2.js';
+import { COLORS } from './config.v3.js';
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();

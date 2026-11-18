@@ -1,17 +1,18 @@
 // ============================================================
-// vehicle.v2.js —— AGV 车辆调度（P2 实现，替代 v1 桩）
+// vehicle.v3.js —— AGV 车队（v3：增加跨系统避障接口）
 // 功能：沿 ROAD_GRAPH 路网行驶（弧长参数化）+ 右侧行车道偏移 +
 //       跟车间距控制 + 路口通行控制（占用锁）+ 故障停车与警报联动。
-// 实现要点（§7 / §8）：
-//   - 弧长推进以 simClock.simTime 增量积分（dt = simTime - lastSim），
-//     暂停时 dt=0 自然停走、恢复连续；simTime 是唯一时间源；
-//   - 显式状态机：PARKED → RUNNING ⇄ YIELD / FAULT，转移条件逐条列出；
-//   - 车辆 4 个部件全部 InstancedMesh，逐帧仅更新实例矩阵（§8）；
-//   - 航向取 ±sampleArc 弧长窗内线段方向加权和，转弯圆滑、车道偏移无跳变。
+// v3 变化：
+//   - update(simTime, extras)：extras 为物料 AGV 世界坐标（material.v3.js），
+//     作为跟车障碍（横向容差收紧 2.0，停靠位 z=29 与车道 31.4 相距 2.4 不误判）
+//     与路口占用候选 —— 车队与物料车互让，避免跨系统穿模；
+//   - getVehicles()：向物料系统暴露车队坐标（反向避障）。
+// 其余与 v2 一致：弧长以 simTime 增量积分（暂停自然停走）、显式状态机、
+// 车辆 4 部件 InstancedMesh、警示灯实例级颜色。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS, ROAD_GRAPH, VEHICLE_CFG as CFG } from './config.v2.js';
+import { COLORS, ROAD_GRAPH, VEHICLE_CFG as CFG } from './config.v3.js';
 
 export const VEHICLE_STATE = {
   PARKED: 'PARKED',
@@ -20,7 +21,6 @@ export const VEHICLE_STATE = {
   FAULT: 'FAULT',
 };
 
-// —— 车辆部件几何（高度已在几何内烘焙，4 部件共用同一实例矩阵）——
 const GEO = {
   under:  new THREE.BoxGeometry(2.3, 0.3, 3.4).translate(0, 0.30, 0),
   body:   new THREE.BoxGeometry(2.1, 0.5, 3.1).translate(0, 0.70, 0),
@@ -36,7 +36,6 @@ const COLOR_BRIGHT = new THREE.Color(1.0, 0.54, 0.14);
 const COLOR_DIM = new THREE.Color(0.45, 0.26, 0.08);
 const COLOR_DARK = new THREE.Color(0.16, 0.12, 0.07);
 
-/** 节点序列 → 弧长参数化折线（闭合环线） */
 function buildRoute(nodeKeys) {
   const pts = nodeKeys.map((k) => ROAD_GRAPH.nodes[k]);
   const segs = [];
@@ -58,14 +57,12 @@ function segAt(route, s) {
   return route.segs[route.segs.length - 1];
 }
 
-/** 弧长 → 中心线坐标 */
 function posAt(route, s) {
   const sg = segAt(route, s);
   const d = s - sg.c0;
   return [sg.x + sg.dx * d, sg.z + sg.dz * d];
 }
 
-/** 弧长 → 平滑航向（±sampleArc 窗内各线段方向按重叠长度加权，端点跨闭合缝） */
 function dirAt(route, s) {
   let ax = 0, az = 0;
   for (const sg of route.segs) {
@@ -92,7 +89,6 @@ export function createVehicleSystem(scene) {
   const routes = {};
   for (const key of Object.keys(CFG.routes)) routes[key] = buildRoute(CFG.routes[key]);
 
-  // —— 车辆部件 InstancedMesh（§8：重复对象实例化）——
   const mats = {
     under:  new THREE.MeshStandardMaterial({ color: COLORS.darkGray,  roughness: 0.6, metalness: 0.2 }),
     body:   new THREE.MeshStandardMaterial({ color: COLORS.lightGray, roughness: 0.55 }),
@@ -105,12 +101,11 @@ export function createVehicleSystem(scene) {
     im.instanceMatrix.needsUpdate = true;
     im.castShadow = true;
     im.receiveShadow = true;
-    im.frustumCulled = false;   // 实例随车辆全图移动，禁用视锥剔除
+    im.frustumCulled = false;
     scene.add(im);
     ims[part] = im;
   }
 
-  // —— 车队状态 ——
   const vehicles = CFG.fleet.map((f, i) => ({
     id: i,
     name: `AGV-${i + 1}`,
@@ -118,7 +113,7 @@ export function createVehicleSystem(scene) {
     s: f.s0 * routes[f.route].L,
     state: VEHICLE_STATE.PARKED,
     lastSim: null,
-    nextFaultAt: 20 + i * 14 + Math.random() * 18,   // 首次故障错峰出现
+    nextFaultAt: 20 + i * 14 + Math.random() * 18,
     faultEnd: 0,
     pos: new THREE.Vector3(),
     dir: new THREE.Vector3(1, 0, 0),
@@ -126,8 +121,11 @@ export function createVehicleSystem(scene) {
 
   const junctionPos = CFG.junctions.map((k) => ROAD_GRAPH.nodes[k]);
 
-  function update(simTime) {
-    // ① 故障状态机（显式转移条件：时间到达触发 / 到达修复时刻）
+  /**
+   * 每帧推进。extras: [{ x, z }] —— 物料 AGV 坐标（跨系统避障）。
+   */
+  function update(simTime, extras = []) {
+    // ① 故障状态机（显式转移条件）
     for (const v of vehicles) {
       if (v.state === VEHICLE_STATE.FAULT && simTime >= v.faultEnd) {
         v.state = VEHICLE_STATE.RUNNING;
@@ -138,7 +136,7 @@ export function createVehicleSystem(scene) {
       }
     }
 
-    // ② 按当前弧长求位姿（供路口/跟车判定）
+    // ② 位姿（供路口/跟车判定）
     for (const v of vehicles) {
       const s = ((v.s % v.route.L) + v.route.L) % v.route.L;
       const [px, pz] = posAt(v.route, s);
@@ -147,34 +145,43 @@ export function createVehicleSystem(scene) {
       v.dir.set(dx, 0, dz);
     }
 
-    // ③ 路口占用锁：距路口中心最近且在占用半径内的车辆持有该路口
-    const holders = new Map();   // junction index → vehicle
+    // ③ 路口占用锁：候选 = 车队车辆 + 物料 AGV（extras）
+    const holders = new Map();   // junction index → holder（车队车 or 'X'物料车）
     junctionPos.forEach((j, ji) => {
-      let best = null, bestD = CFG.junctionR;
+      let best = null, bestD = CFG.junctionR, bestIsExtra = false;
       for (const v of vehicles) {
         const d = Math.hypot(v.pos.x - j.x, v.pos.z - j.z);
         if (d < bestD) {
           bestD = d;
           best = v;
+          bestIsExtra = false;
         }
       }
-      if (best) holders.set(ji, best);
+      for (const e of extras) {
+        const d = Math.hypot(e.x - j.x, e.z - j.z);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+          bestIsExtra = true;
+        }
+      }
+      if (best) holders.set(ji, { v: best, isExtra: bestIsExtra });
     });
 
     // ④ 逐车决策与弧长积分（dt 来自 simTime 增量 —— 暂停时 dt=0）
     for (const v of vehicles) {
-      let block = false;      // 跟车间距触发
-      let yieldJ = false;     // 路口让行触发
+      let block = false;
+      let yieldJ = false;
       if (v.state !== VEHICLE_STATE.FAULT) {
         // 路口让行：路口被他人持有、路口在我前方、且我尚未进入占用圈
         junctionPos.forEach((j, ji) => {
           const h = holders.get(ji);
-          if (!h || h === v) return;
+          if (!h || h.v === v) return;
           const d = Math.hypot(v.pos.x - j.x, v.pos.z - j.z);
           const ahead = (j.x - v.pos.x) * v.dir.x + (j.z - v.pos.z) * v.dir.z > 0;
           if (ahead && d < CFG.junctionStop && d > CFG.junctionR) yieldJ = true;
         });
-        // 跟车间距：前方近距且横向对齐（同车道）的车辆 → 保持间距
+        // 跟车间距：车队车辆（同车道）
         for (const u of vehicles) {
           if (u === v) continue;
           const rx = u.pos.x - v.pos.x;
@@ -183,6 +190,16 @@ export function createVehicleSystem(scene) {
           if (along > 0.5 && along < CFG.followGap) {
             const lat = Math.abs(rx * v.dir.z - rz * v.dir.x);
             if (lat < CFG.followLat) block = true;
+          }
+        }
+        // 跨系统跟车：物料 AGV（横向容差收紧 2.0；停靠位 2.4m 外不误判）
+        for (const e of extras) {
+          const rx = e.x - v.pos.x;
+          const rz = e.z - v.pos.z;
+          const along = rx * v.dir.x + rz * v.dir.z;
+          if (along > 0.5 && along < CFG.followGap) {
+            const lat = Math.abs(rx * v.dir.z - rz * v.dir.x);
+            if (lat < 2.0) block = true;
           }
         }
       }
@@ -194,7 +211,7 @@ export function createVehicleSystem(scene) {
       v.lastSim = simTime;
       if (v.state === VEHICLE_STATE.RUNNING) v.s += CFG.speed * dt;
 
-      // ⑤ 写实例矩阵：右侧行车道偏移（right = forward × up）
+      // ⑤ 写实例矩阵：右侧行车道偏移
       const s = ((v.s % v.route.L) + v.route.L) % v.route.L;
       const [px, pz] = posAt(v.route, s);
       const [dx, dz] = dirAt(v.route, s);
@@ -205,7 +222,7 @@ export function createVehicleSystem(scene) {
       M4.compose(POS, Q, ONE);
       for (const part of Object.keys(ims)) ims[part].setMatrixAt(v.id, M4);
 
-      // ⑥ 警示灯：运行慢闪 / 让行常暗 / 故障急闪（实例级颜色）
+      // ⑥ 警示灯
       let c;
       if (v.state === VEHICLE_STATE.FAULT) {
         c = Math.sin(simTime * Math.PI * 2 * 6 + v.id) > 0 ? COLOR_BRIGHT : COLOR_DARK;
@@ -222,7 +239,10 @@ export function createVehicleSystem(scene) {
 
   return {
     count: () => vehicles.length,
-    /** 面板遥测：运行 / 让行 / 故障 计数 */
+    /** 向物料系统暴露车队坐标（反向避障） */
+    getVehicles() {
+      return vehicles.map((v) => ({ x: v.pos.x, z: v.pos.z }));
+    },
     statsLabel() {
       let run = 0, give = 0, fault = 0;
       for (const v of vehicles) {
@@ -232,7 +252,6 @@ export function createVehicleSystem(scene) {
       }
       return `运行 ${run} · 让行 ${give} · 故障 ${fault}`;
     },
-    /** 警报列表（故障停车 → 警报联动） */
     alarms() {
       return vehicles
         .filter((v) => v.state === VEHICLE_STATE.FAULT)

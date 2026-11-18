@@ -1,13 +1,14 @@
 // ============================================================
-// scene.v2.js —— 渲染器、场景、天空渐变背景、地面、灯光
+// scene.v3.js —— 渲染器、场景、天空渐变背景、地面、灯光
+// v3：仅配置版本跟进（import config.v3），逻辑与 v2 一致。
 // 健壮性检查（§9）：
 //   - 主平行光唯一投射阴影；shadow camera 收紧到基地主区域；
-//     bias = -0.0005；mapSize 2048；near/far 按光位与地面距离设定，防阴影闪烁。
+//     bias = -0.0005；mapSize 2048；near/far 覆盖光位到地面全程，防阴影闪烁。
 //   - outputColorSpace = SRGBColorSpace，无弃用 API，控制台零 warning。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS, LAYOUT } from './config.v2.js';
+import { COLORS, LAYOUT } from './config.v3.js';
 
 /** 天空渐变背景（Canvas 生成，不依赖外部贴图） */
 function makeSkyTexture() {

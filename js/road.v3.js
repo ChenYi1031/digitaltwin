@@ -1,15 +1,14 @@
 // ============================================================
-// road.v2.js —— 路网节点图 → 路面 + 标线
-// v2：ROAD_GRAPH 主干道拆为 4 段（config.v2），逐段绘制结果与整段视觉一致；
-//     段间接缝面法线相反（+x 面 vs -x 面），背面剔除下不产生 Z-fighting。
+// road.v3.js —— 路网节点图 → 路面 + 标线
+// v3：仅配置版本跟进（config.v3 新增停靠节点 dA/dB/dI，位于主干道上，
+//     仅寻路用，edges 不变 → 路面几何与 v2 完全一致）。
 // 健壮性检查（§9）：
 //   - 主干道顶面 0.14、支路顶面 0.15、标线底面 0.16：相邻高程错开 ≥0.01；
 //   - 支路两端各外延半宽，填平丁字路口夹角。
-// vehicle.v2.js 复用 ROAD_GRAPH 做沿路网行驶与路口通行控制。
 // ============================================================
 
 import * as THREE from 'three';
-import { COLORS, ROAD_GRAPH } from './config.v2.js';
+import { COLORS, ROAD_GRAPH } from './config.v3.js';
 
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 
@@ -58,7 +57,7 @@ export function buildRoads() {
     }
     dashes.instanceMatrix.needsUpdate = true;
     dashes.receiveShadow = true;
-    dashes.frustumCulled = false;   // 实例包围远超几何球，禁用视锥剔除防整段消失
+    dashes.frustumCulled = false;
     g.add(dashes);
   }
 
@@ -79,7 +78,7 @@ export function buildRoads() {
     id: 'road',
     name: '基地道路网',
     status: '畅通 · AGV 调度运行中',
-    desc: '1 条主干道 + 3 条支路。AGV 车辆沿路网行驶（P2 已启用）：右侧行车、跟车间距、路口让行。',
+    desc: '1 条主干道 + 3 条支路。车队 AGV 沿路网行驶，物料 AGV 经停靠位 dA/dB/dI 与工位协同（已启用）。',
     group: g,
     focus: {
       target: new THREE.Vector3(0, 2, 34),
