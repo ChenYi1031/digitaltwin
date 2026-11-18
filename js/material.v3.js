@@ -196,7 +196,7 @@ export function createMaterialSystem(scene, robots, fleetGet) {
 
       if (v.state === MSTATE.LOAD) {
         if (el >= MC.dwell.load && el >= 0) {
-          v.rawCount = MC.batch;
+          v.rawCount = Math.min(MC.batch, v.rawCount + MC.batch);   // 保留上轮未接收余料
           startBlend(v, loadPose, paths.out[v.line.id].lanePose(0, MC.laneOffset), MSTATE.RUN_OUT, simTime);
         }
       } else if (v.state === MSTATE.RUN_OUT || v.state === MSTATE.RUN_INS || v.state === MSTATE.RUN_HOME) {
@@ -216,13 +216,16 @@ export function createMaterialSystem(scene, robots, fleetGet) {
             if (lat < MC.followLat) v.blocked = true;
           }
         }
-        // n4 路口让行（车队持锁时，本车在停止线外让行）
-        const dhx = n4Node.x - v.pose.x;
-        const dhz = n4Node.z - v.pose.z;
-        const dN4 = Math.hypot(dhx, dhz);
-        const aheadN4 = dhx * dir.x + dhz * dir.z > 0;
-        const fleetHolder = fleet.some((f) => Math.hypot(f.x - n4Node.x, f.z - n4Node.z) < MC.n4.r);
-        if (fleetHolder && aheadN4 && dN4 > MC.n4.r && dN4 < MC.n4.stop) v.blocked = true;
+        // n4 路口让行（仅 out/home 腿穿越 n4；toIns 直达腿 dA→dI 不经 n4，
+        // 且 dI 距 n4 仅 10m —— 对 RUN_INS 生效会误挡去程车）
+        if (v.state !== MSTATE.RUN_INS) {
+          const dhx = n4Node.x - v.pose.x;
+          const dhz = n4Node.z - v.pose.z;
+          const dN4 = Math.hypot(dhx, dhz);
+          const aheadN4 = dhx * dir.x + dhz * dir.z > 0;
+          const fleetHolder = fleet.some((f) => Math.hypot(f.x - n4Node.x, f.z - n4Node.z) < MC.n4.r);
+          if (fleetHolder && aheadN4 && dN4 > MC.n4.r && dN4 < MC.n4.stop) v.blocked = true;
+        }
         // 交付位占用 → 提前停车等待（含对位过渡中的车辆；仅去程且终点为 dI）
         if (v.state === MSTATE.RUN_INS) {
           const other = vehicles.find((u) => u !== v &&

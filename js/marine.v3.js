@@ -205,8 +205,10 @@ export function createMarine(scene, yardAPI) {
     });
   });
 
-  function dropT(k) { return M.approachDur + M.loadDelay + k * M.loadDur + 0.95 * M.loadDur; }
-  function grabT(k) { return M.approachDur + M.loadDelay + k * M.loadDur + 0.5 * M.loadDur; }
+  // 与关键帧对齐：抓取完成 u=0.55（吊具到达 grabY）、落箱完成 u=0.92（到达 dropY）——
+  // 堆场箱隐藏/heldBox 显形/甲板箱显形三者同一时刻切换，无早隐晚显。
+  function dropT(k) { return M.approachDur + M.loadDelay + k * M.loadDur + 0.92 * M.loadDur; }
+  function grabT(k) { return M.approachDur + M.loadDelay + k * M.loadDur + 0.55 * M.loadDur; }
 
   function loadedCount(tl) {
     if (tl < dropT(0)) return 0;
@@ -312,8 +314,8 @@ export function createMarine(scene, yardAPI) {
     if (active) {
       const ck = cycleKeyframes(active.k, active.ship, active.ship.group.position.y);
       pose = interpKF(ck.kf, active.u);
-      // 吊具持箱与颜色（纯函数：u ∈ [0.5, 0.95)）
-      const holding = active.u >= 0.5 && active.u < 0.95;
+      // 吊具持箱与颜色（纯函数：u ∈ [0.55, 0.92) —— 与 grabT/dropT 同一时刻切换）
+      const holding = active.u >= 0.55 && active.u < 0.92;
       heldBox.visible = holding;
       if (holding) heldMat.color.set(PAL[ck.slot.colorIdx]);
     } else if (blendAfter) {

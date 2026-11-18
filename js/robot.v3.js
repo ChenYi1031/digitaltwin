@@ -200,7 +200,9 @@ export function createRobotStation(index) {
     // —— 显式状态机（事件门控转移，全部条件逐条列出）——
     const el = simTime - tEnter;
     if (phase === ROBOT_PHASE.WAIT) {
-      if (stock > 0 && target < M.targetMax && el >= M.minWait) enter(ROBOT_PHASE.GRASP, simTime);
+      // 顶层淡入完成门控：stockIn 刚发生时顶层 mesh 仍在淡入，须等 0.4s 再抓
+      const topReady = stock <= 0 || simTime >= stockAppear[stock - 1] + 0.4;
+      if (stock > 0 && target < M.targetMax && el >= M.minWait && topReady) enter(ROBOT_PHASE.GRASP, simTime);
     } else if (phase === ROBOT_PHASE.GRASP) {
       if (el >= DUR.GRASP) enter(ROBOT_PHASE.TRANSFER, simTime);
     } else if (phase === ROBOT_PHASE.TRANSFER) {

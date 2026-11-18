@@ -125,7 +125,7 @@ export const MATERIAL_CFG = {
   batch: 4,
   dwell: { load: 3, unload: 4, handoff: 3 },
   followGap: 11, followLat: 2.0,
-  dockZ: 29.0,          // 工位停靠位（主干道北缘，与车队车道 31.4 错开 2.4m）
+  dockZ: 28.5,          // 工位停靠位（与车队西行车道 31.4 间距 2.9m，扣除车宽留 0.6m 视觉间隙）
   holdDist: 8,          // 交付位占用时提前停车的距离
   blendT: 1.5,
   n4: { r: 9, stop: 16 },   // n4 路口让行参数（对车队持锁让行）

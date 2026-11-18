@@ -192,7 +192,7 @@ export function createVehicleSystem(scene) {
             if (lat < CFG.followLat) block = true;
           }
         }
-        // 跨系统跟车：物料 AGV（横向容差收紧 2.0；停靠位 2.4m 外不误判）
+        // 跨系统跟车：物料 AGV（横向容差收紧 2.0；停靠位 28.5 与车道 31.4 相距 2.9m 不误判）
         for (const e of extras) {
           const rx = e.x - v.pos.x;
           const rz = e.z - v.pos.z;
